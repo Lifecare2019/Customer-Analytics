@@ -1,0 +1,50 @@
+import pandas as pd
+df=pd.read_excel("Customer_Analytics.xlsx")
+df.head()
+
+df['TotalPrice']=df['Quantity']*df['UnitPrice']
+def f(df):
+    if df['Quantity'] < 0:
+         val = "yes"
+    else:
+        val = "no"
+    return val  
+ def f(df):
+    if df['Quantity'] < 0:
+         val = 0
+    else:
+        val = df['TotalPrice'] 
+    return val 
+df['TotalPrice'] = df.apply(f, axis=1) 
+df['InvoiceDate']=pd.to_datetime(df['InvoiceDate'])
+rfmTable=df[df.Returned=='no'].groupby('CustomerID').agg({'InvoiceDate':lambda x:(current-x.max()).days,'InvoiceNo':lambda x:len(x),'TotalPrice':lambda x:x.sum()})
+rfmTable['InvoiceDate']=rfmTable['InvoiceDate'].astype(int)
+rfmTable.rename(columns={'InvoiceDate':'Recency','InvoiceNo':'Frequency','TotalPrice':'MonentaryValue'},inplace=True)
+
+quantiles = rfmTable.quantile(q=[0.25,0.5,0.75])
+quantiles = quantiles.to_dict()
+segmented_rfm = rfmTable
+def RScore(x,p,d):
+    if x <= d[p][0.25]:
+        return 1
+    elif x <= d[p][0.50]:
+        return 2
+    elif x <= d[p][0.75]: 
+        return 3
+    else:
+        return 4
+
+def FMScore(x,p,d):
+    if x <= d[p][0.25]:
+        return 4
+    elif x <= d[p][0.50]:
+        return 3
+    elif x <= d[p][0.75]: 
+        return 2
+    else:
+        return 1
+
+segmented_rfm['r_quartile'] = segmented_rfm['Recency'].apply(RScore, args=('Recency',quantiles,))
+segmented_rfm['f_quartile'] = segmented_rfm['Frequency'].apply(FMScore, args=('Frequency',quantiles,))
+segmented_rfm['m_quartile'] = segmented_rfm['MonentaryValue'].apply(FMScore, args=('MonentaryValue',quantiles,))
+segmented_rfm['RFMScore'] = segmented_rfm.r_quartile.map(str)+segmented_rfm.f_quartile.map(str)+segmented_rfm.m_quartile.map(str)
